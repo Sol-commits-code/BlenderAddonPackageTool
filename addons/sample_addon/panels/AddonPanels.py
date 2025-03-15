@@ -18,7 +18,7 @@ class BasePanel(object):
 
 @reg_order(0)
 class ExampleAddonPanel(BasePanel, bpy.types.Panel):
-    bl_label = "Example Addon Side Bar Panel"
+    bl_label = "Example Addon Side Bar"
     bl_idname = "SCENE_PT_sample"
 
     def draw(self, context: bpy.types.Context):
