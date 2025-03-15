@@ -1,27 +1,53 @@
+"""
+Filename: AddonOperators.py
+Description: This script will perform a ray casting in the blender workspace. The rays will emit 
+From the princple camera in the scene. The number of rays is set by the ray_x and ray_y user inputs 
+as defined in the mainPanel class in AddonPanels. It its current state, the function spawns a red 
+shpere at the point of each intersection  
+
+Author: Sol Sinclair
+Date Created: 2025-03-15
+Last Modified: 2025-03-15
+Version: 1.0
+
+License: [Specify license, e.g., MIT, GPL, or 'All rights reserved']
+Dependencies:
+    - Blender 3.x (if used in Blender)
+    - NumPy (if applicable)
+    - Any other necessary libraries
+
+Notes:
+    - TODO return a list containing intersection coordinates for each object 
+"""
+
 import bpy
 import mathutils
 import math
 
 from ..config import __addon_name__
 from ..preference.AddonPreferences import ExampleAddonPreferences
+from ..panels.AddonPanels import mainPanel
 
-
+#Principle class that perform the ray casting function 
 class castRays(bpy.types.Operator):
-    """Add a UV Sphere"""
+    """Cast Rays to get Intersection Point"""
     bl_idname = "object.cast_rays"
     bl_label = "Cast Rays"
     bl_options = {'REGISTER', 'UNDO'}
 
+    # following def executes the casting operation
     def execute(self, context):
         scene = bpy.context.scene
         camera = bpy.context.scene.camera
-
+        
+        # Check if scene has an active camera if true, perform casting
         if camera:
             castRays.cast_ray_from_camera(scene, camera)
         else:
             print("No active camera found!")
         return {'FINISHED'}
 
+    # Adds spawned shepres into a blender collection for easy deletion from blender environment
     def get_or_create_collection(name="Raycast_Dots"):
         """Gets or creates a collection to store raycast dots."""
         if name in bpy.data.collections:
@@ -31,9 +57,10 @@ class castRays(bpy.types.Operator):
             bpy.context.scene.collection.children.link(new_collection)
             return new_collection
 
-    def cast_ray_from_camera(scene, camera, num_rays_x=10, num_rays_y=10):
+    # Meat and Potatos function 
+    def cast_ray_from_camera(scene, camera):
         """Casts rays from the camera within its FOV and marks intersection points with a small sphere."""
-        
+
         # Get the dependency graph
         depsgraph = bpy.context.evaluated_depsgraph_get()
 
@@ -52,6 +79,10 @@ class castRays(bpy.types.Operator):
 
         # Get or create the collection for storing dots
         dot_collection = castRays.get_or_create_collection()
+
+        # Get user input for number of cast rays as defined in AddonPanels
+        num_rays_x = bpy.context.scene.rays_x
+        num_rays_y = bpy.context.scene.rays_y
 
         for i in range(num_rays_x):
             for j in range(num_rays_y):
@@ -80,6 +111,7 @@ class castRays(bpy.types.Operator):
                     print(f"Ray ({i}, {j}) hit {object.name} at {location}")
                     castRays.draw_dot_at_point(location, dot_collection)
 
+    # Spawns the Shperes 
     def draw_dot_at_point(location, collection, radius=0.05):
         """Creates a small sphere at the given location and adds it to the specified collection."""
         
@@ -95,6 +127,7 @@ class castRays(bpy.types.Operator):
         if dot.name in bpy.context.scene.collection.objects:
             bpy.context.scene.collection.objects.unlink(dot)
 
+    # Colors the shperes red 
     def get_or_create_material(name):
         """Creates or retrieves a material with the given name."""
         mat = bpy.data.materials.get(name)
@@ -103,3 +136,13 @@ class castRays(bpy.types.Operator):
             mat.diffuse_color = (1, 0, 0, 1)  # Red color
         return mat
     
+def register():
+    # Register the castRays class
+    bpy.utils.register_class(castRays)
+
+def unregister():
+    # Register the castRays class
+    bpy.utils.register_class(castRays)
+
+if __name__ == "__main__":
+    register()
