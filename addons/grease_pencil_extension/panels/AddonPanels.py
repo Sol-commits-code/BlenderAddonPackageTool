@@ -5,7 +5,6 @@ from ..config import __addon_name__
 from ....common.i18n.i18n import i18n
 from ....common.types.framework import reg_order
 
-
 class mainPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "Create Drawing"
@@ -24,6 +23,7 @@ class mainPanel(bpy.types.Panel):
 
         layout.label(text="Execute Drawing:")
         layout.operator("object.cast_rays", text="Cast Rays")
+        layout.operator("object.test_script", text="Execute Test Script")
             
     def register():
       
@@ -38,4 +38,5 @@ class mainPanel(bpy.types.Panel):
     
         del bpy.types.Scene.rays_x
         del bpy.types.Scene.rays_y
+
 

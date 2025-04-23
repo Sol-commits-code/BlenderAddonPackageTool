@@ -23,10 +23,12 @@ Notes:
 import bpy
 import mathutils
 import math
+import bmesh
 
 from ..config import __addon_name__
 from ..preference.AddonPreferences import ExampleAddonPreferences
 from ..panels.AddonPanels import mainPanel
+
 
 #Principle class that perform the ray casting function 
 class castRays(bpy.types.Operator):
@@ -112,7 +114,7 @@ class castRays(bpy.types.Operator):
                     castRays.draw_dot_at_point(location, dot_collection)
 
     # Spawns the Shperes 
-    def draw_dot_at_point(location, collection, radius=0.05):
+    def draw_dot_at_point(location, collection, radius=0.1):
         """Creates a small sphere at the given location and adds it to the specified collection."""
         
         bpy.ops.mesh.primitive_uv_sphere_add(radius=radius, location=location)
@@ -146,3 +148,4 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+
