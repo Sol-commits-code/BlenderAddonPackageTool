@@ -57,6 +57,11 @@ class test_script(bpy.types.Operator):
             vert3 = vert_coords[2]
             vert4 = vert_coords[3]
 
+            grad1 = test_script.gradientcalc((vert1[0], vert1[1]), (vert2[0], vert2[1]))
+            grad2 = test_script.gradientcalc((vert3[0], vert3[1]), (vert4[0], vert4[1]))    
+            print(grad1)
+            print(grad2)
+
             # --- Example Usage ---
 
             quad = [
@@ -65,35 +70,29 @@ class test_script(bpy.types.Operator):
                 (vert3[0], vert3[1], vert3[2]),
                 (vert4[0], vert4[1], vert4[2])
             ]
-
-            P = (0.5, 0.2, 2)  # interior point
-            m1, m2 = 0, 100
+            desiredGrad = 0.2
+            dummyGrad = test_script.convertGrad(grad1, desiredGrad)
+            print(dummyGrad)
+            P = (0, 0, 0)  # interior point3
+            m1, m2 = dummyGrad, 10
             hits = test_script.intersect_lines_with_quad(quad, P, m1, m2)
             print(hits)
             line1 = (hits['line1'])
-            line2 = (hits['line2'])
+            line2 = (hits['line2']) 
             line1_Vert1 = line1[0]
             line1_Vert2 = line1[1]
             line2_Vert1 = line2[0]
             line2_Vert2 = line2[1]
+            sphere1 = (line1_Vert1[0], line1_Vert1[1], line1_Vert1[2])
+            sphere2 = (line1_Vert2[0], line1_Vert2[1], line1_Vert2[2])
+            #sphere3 = (line2_Vert1[0], line2_Vert1[1], line2_Vert1[2])
+            #sphere4 = (line2_Vert2[0], line2_Vert2[1], line2_Vert2[2])
         
-            test_script.addsphere(0.5, 0.2, 2)
-            test_script.addsphere(line1_Vert1[0], line1_Vert1[1], line1_Vert1[2])
-            test_script.addsphere(line1_Vert2[0], line1_Vert2[1], line1_Vert2[2])
-            test_script.addsphere(line2_Vert1[0], line2_Vert1[1], line2_Vert1[2])
-            test_script.addsphere(line2_Vert2[0], line2_Vert2[1], line2_Vert2[2])
-
-            #test_script.addsphere(line1[0], line1[1], line1[2])
-            #test_script.addsphere(line1[0], line1[1], line1[2])
-
-            #test_script.addsphere(line2[0], line2[1], line2[2])
-            #test_script.addsphere(line2[0], line2[1], line2[2])
-
-        
-
-
-            #test_script.addsphere(0.8, 0.4, 0.0)
-
+            test_script.addsphere(P)
+            test_script.addsphere(sphere1)
+            test_script.addsphere(sphere2)
+            #test_script.addsphere(sphere3)
+            #test_script.addsphere(sphere4)
     
     ## LINE INTERSECT FUNCTIONS     
     
@@ -179,9 +178,121 @@ class test_script(bpy.types.Operator):
             'line2': find_hits(m2),
         }
         
-    def addsphere(x_sphere, y_sphere, z_sphere):  
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.05, location=(x_sphere, y_sphere, z_sphere))
+    def addsphere(coords):  
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.02, location=(coords[0], coords[1], coords[2]))
         return {'FINISHED'}
+    
+    def convertGrad(TrueGrad, desiredGrad):  
+        # Helper function to calculate the dummy grad to dope the transformed x-y axis 
+        # Converts Desired grad and actual grad to degrees sums them and returns the result as gradient
+        GradConvert = -1*TrueGrad
+        TrueGradRad = math.atan(GradConvert)
+        TrueGradDegrees = math.degrees(TrueGradRad)
+        desiredGradRad = math.atan(desiredGrad)
+        desiredGradDegrees = math.degrees(desiredGradRad)
+        summedGradDegrees = TrueGradDegrees+desiredGradDegrees
+        finalGrad = math.tan(math.radians(summedGradDegrees))
+        return finalGrad
+
+    def gradientcalc(p1, p2):
+        """
+        Calculate the gradient (slope) of the line through two 2D points.
+
+        Parameters:
+            p1 (tuple of float): (x1, y1)
+            p2 (tuple of float): (x2, y2)
+
+        Returns:
+            float: (y2 - y1) / (x2 - x1)
+
+        Raises:
+            ValueError: if x2 == x1 (vertical line has undefined slope).
+        """
+        x1, y1 = p1
+        x2, y2 = p2
+
+        dx = x2 - x1
+        if dx == 0:
+            raise ValueError(f"Vertical line through x = {x1!r}; slope is undefined.")
+
+        return (y2 - y1) / dx
+    
+    def intersect_lines_3d(p1, d1, p2, d2, tol=1e-6):
+        """
+        Given two lines in 3D:
+        L1: X = p1 + s * d1
+        L2: X = p2 + t * d2
+        where p1, p2 are points (x,y,z) and d1, d2 are direction vectors (dx,dy,dz),
+        determine if they intersect. If so, return the intersection point as (x,y,z).
+        Otherwise return None.
+
+        Parameters:
+            p1 (tuple of float): a point on line1
+            d1 (tuple of float): direction vector of line1
+            p2 (tuple of float): a point on line2
+            d2 (tuple of float): direction vector of line2
+            tol (float): tolerance for floating-point comparisons
+
+        Returns:
+            tuple of float or None: intersection point, or None if no intersection.
+        """
+
+        # vector ops
+        def sub(a,b):   return (a[0]-b[0], a[1]-b[1], a[2]-b[2])
+        def add(a,b):   return (a[0]+b[0], a[1]+b[1], a[2]+b[2])
+        def mul(a, s):  return (a[0]*s,   a[1]*s,   a[2]*s)
+        def dot(a,b):   return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]
+        def cross(a,b):
+            return (a[1]*b[2] - a[2]*b[1],
+                    a[2]*b[0] - a[0]*b[2],
+                    a[0]*b[1] - a[1]*b[0])
+        def norm(a):    return math.sqrt(dot(a,a))
+
+        # 1) Check if directions are parallel
+        cr = cross(d1, d2)
+        if norm(cr) < tol:
+            # parallel (or colinear)
+            # check if (p2 - p1) is also parallel to d1 → colinear
+            if norm(cross(sub(p2, p1), d1)) < tol:
+                raise ValueError("Lines are colinear (infinitely many intersections).")
+            else:
+                return None  # strictly parallel, no intersection
+
+        # 2) To solve p1 + s d1 = p2 + t d2, pick the two coords where cross(d1, d2) has largest magnitude
+        #    so the projection yields a nonsingular 2×2 system.
+        abs_cr = list(map(abs, cr))
+        # index of the largest component in cross
+        k = abs_cr.index(max(abs_cr))
+        # use the other two axes
+        idx = [0,1,2]
+        idx.remove(k)  # now idx = [i, j]
+
+        i, j = idx
+
+        # Build and solve the 2×2 system:
+        #    p1[i] + s*d1[i] = p2[i] + t*d2[i]
+        #    p1[j] + s*d1[j] = p2[j] + t*d2[j]
+        A = (( d1[i], -d2[i] ),
+            ( d1[j], -d2[j] ))
+        B = ( p2[i] - p1[i],
+            p2[j] - p1[j] )
+
+        detA = A[0][0]*A[1][1] - A[0][1]*A[1][0]
+        if abs(detA) < tol:
+            return None  # degenerate in this projection plane
+
+        # Cramer’s rule
+        s = ( B[0]*A[1][1] - B[1]*A[0][1] ) / detA
+        t = ( A[0][0]*B[1] - A[1][0]*B[0] ) / detA
+
+        # 3) Compute the two candidate points and check they coincide
+        X1 = add(p1, mul(d1, s))
+        X2 = add(p2, mul(d2, t))
+        if norm(sub(X1, X2)) > tol:
+            return None  # they miss (skew lines)
+
+        # 4) Success!
+        return X1
 
 def register():
     # Register the castRays class
