@@ -7,6 +7,7 @@ import numpy as np
 from ..config import __addon_name__
 from ..preference.AddonPreferences import ExampleAddonPreferences
 from ..panels.AddonPanels import mainPanel
+from typing import Tuple, List
 
 #Principle class that executes the test script
 class test_script(bpy.types.Operator):
@@ -63,20 +64,34 @@ class test_script(bpy.types.Operator):
             print(grad2)
 
             # --- Example Usage ---
-
+        
             quad = [
                 (vert1[0], vert1[1], vert1[2]),
                 (vert2[0], vert2[1], vert2[2]),
                 (vert3[0], vert3[1], vert3[2]),
                 (vert4[0], vert4[1], vert4[2])
             ]
-            desiredGrad = 0.2
-            dummyGrad = test_script.convertGrad(grad1, desiredGrad)
-            print(dummyGrad)
+
             P = (0, 0, 0)  # interior point3
-            m1, m2 = dummyGrad, 10
+            normalizedPosition = test_script.normalized_distances_to_edges(quad, P)
+            print(normalizedPosition)
+            normline1 = normalizedPosition[2]
+            pointLine4 = test_script.point_along_line((vert4[0], vert4[1], vert4[2]), (vert1[0], vert1[1], vert1[2]), normline1) 
+            pointLine2 = test_script.point_along_line((vert3[0], vert3[1], vert3[2]), (vert2[0], vert2[1], vert2[2]), normline1)
+            print(pointLine4)  
+            print(pointLine2)
+            test_script.addsphere(pointLine4)
+            test_script.addsphere(pointLine2)
+
+
+            """
+            desiredGrad1 = test_script.calculateGrad(normalizedPosition, grad1, grad2)
+            print("calculated average gradient")
+            print(desiredGrad1)
+          
+            dummyGrad1 = test_script.convertGrad(grad1, desiredGrad1)
+            m1, m2 = dummyGrad1, 10
             hits = test_script.intersect_lines_with_quad(quad, P, m1, m2)
-            print(hits)
             line1 = (hits['line1'])
             line2 = (hits['line2']) 
             line1_Vert1 = line1[0]
@@ -93,6 +108,9 @@ class test_script(bpy.types.Operator):
             test_script.addsphere(sphere2)
             #test_script.addsphere(sphere3)
             #test_script.addsphere(sphere4)
+            """
+            
+          
     
     ## LINE INTERSECT FUNCTIONS     
     
@@ -193,6 +211,76 @@ class test_script(bpy.types.Operator):
         summedGradDegrees = TrueGradDegrees+desiredGradDegrees
         finalGrad = math.tan(math.radians(summedGradDegrees))
         return finalGrad
+    
+    def calculateGrad(normData, grad1, grad2):
+        print("gradient testing")
+        print(normData)
+        normGrad1 = normData[2]*grad1
+        print(normGrad1)
+        normGrad2 = normData[0]*grad2
+        print(normGrad2)
+        gradient = (normGrad1+normGrad2)
+        return gradient
+    
+    def normalized_distances_to_edges(
+        vertices: List[Tuple[float, float, float]],
+        point: Tuple[float, float, float]
+    ) -> List[float]:
+        """
+        Given a convex quad in 3D and a point on its plane, compute for each edge
+        the perpendicular distance from the point to the (infinite) line through
+        that edge, normalized by the edge's length.
+
+        Parameters:
+            vertices: List of four (x, y, z) tuples, ordered around the quad.
+            point:    (x, y, z) tuple lying on the same plane as the quad.
+
+        Returns:
+            List of four floats [d0, d1, d2, d3], where di is
+                (distance from point to edge i) / (length of edge i)
+            Values will be between 0.0 and 1.0 for a convex quad.
+        """
+
+        # --- basic vector operations ---
+        def sub(a, b):
+            return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
+
+        def cross(a, b):
+            return (
+                a[1]*b[2] - a[2]*b[1],
+                a[2]*b[0] - a[0]*b[2],
+                a[0]*b[1] - a[1]*b[0]
+            )
+
+        def norm(a):
+            return math.sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2])
+
+        dists = []
+        P = point
+
+        # Loop over each edge i → (i+1)%4
+        for i in range(4):
+            A = vertices[i]
+            B = vertices[(i + 1) % 4]
+
+            # Edge vector
+            E = sub(B, A)
+            edge_len = norm(E)
+            if edge_len == 0.0:
+                raise ValueError(f"Edge {i} has zero length (vertices {i} and {(i+1)%4})")
+
+            # Vector from A to point
+            AP = sub(P, A)
+
+            # Perpendicular distance = |AP × E| / |E|
+            area_vec = cross(AP, E)
+            dist = norm(area_vec) / edge_len
+
+            # Normalize by the edge length
+            normalized = dist / edge_len
+            dists.append(normalized)
+
+        return dists
 
     def gradientcalc(p1, p2):
         """
@@ -293,6 +381,35 @@ class test_script(bpy.types.Operator):
 
         # 4) Success!
         return X1
+    
+    def point_along_line(p1, p2, t):
+        """
+        Compute a point along the line from p1 to p2 at normalized position t.
+
+        Parameters:
+            p1 (tuple of float): (x1, y1, z1), the start point (t = 0).
+            p2 (tuple of float): (x2, y2, z2), the end point   (t = 1).
+            t (float): normalized position along the line, 0 <= t <= 1.
+
+        Returns:
+            tuple of float: (x, y, z) coordinate of the interpolated point.
+
+        Raises:
+            ValueError: if t is not in the [0.0, 1.0] range.
+        """
+        if not (0.0 <= t <= 1.0):
+            raise ValueError(f"t must be between 0 and 1 inclusive, got {t!r}")
+
+        x1, y1, z1 = p1
+        x2, y2, z2 = p2
+
+        # Linear interpolation: P = p1 + t * (p2 - p1)
+        x = x1 + t * (x2 - x1)
+        y = y1 + t * (y2 - y1)
+        z = z1 + t * (z2 - z1)
+
+        return (x, y, z)
+
 
 def register():
     # Register the castRays class
